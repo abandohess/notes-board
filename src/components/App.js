@@ -1,9 +1,12 @@
 import React, { Component } from 'react';
 import Immutable from 'immutable';
+import io from 'socket.io-client';
 import Note from './note';
 import CreateBar from './createbar';
-import DataStore from '../services/datastore';
+// import DataStore from '../services/datastore';
 import '../scss/style.scss';
+
+const socketserver = 'http://localhost:9090';
 // import * as db from './services/datastore';
 
 class App extends Component {
@@ -12,20 +15,26 @@ class App extends Component {
 
     this.state = {
       notes: Immutable.Map(),
-      dataStore: new DataStore(),
     };
     this.onCreate = this.onCreate.bind(this);
     this.onDelete = this.onDelete.bind(this);
     this.onUpdate = this.onUpdate.bind(this);
+
+    this.socket = io(socketserver);
+    this.socket.on('connect', () => { console.log('socket.io connected'); });
+    this.socket.on('disconnect', () => { console.log('socket.io disconnected'); });
+    this.socket.on('reconnect', () => { console.log('socket.io reconnected'); });
+    this.socket.on('error', (error) => { console.log(error); });
   }
 
   componentDidMount() {
-    this.state.dataStore.fetchNotes((notes) => {
+    this.socket.on('notes', (notes) => {
       this.setState({ notes: Immutable.Map(notes) });
     });
   }
 
   onCreate(noteTitle, noteText) {
+    console.log('emitting');
     const newNote = {
       title: noteTitle,
       text: noteText,
@@ -33,15 +42,15 @@ class App extends Component {
       y: window.innerHeight / 2,
       zIndex: 1,
     };
-    this.state.dataStore.addNote(newNote);
+    this.socket.emit('createNote', newNote);
   }
 
   onDelete(id) {
-    this.state.dataStore.deleteNote(id);
+    this.socket.emit('deleteNote', id);
   }
 
   onUpdate(id, fields) {
-    this.state.dataStore.updateNote(id, fields);
+    this.socket.emit('updateNote', id, fields);
   }
 
   render() {
